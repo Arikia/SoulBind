@@ -54,12 +54,13 @@ soulbind/
 │   ├── components/          # UI components including IdentityManager
 │   └── pages/              # Next.js pages
 ├── smart_contracts/
-│   └── SoulBind.sol        # Soulbound token contract
+│   ├── Anchor.toml         # Anchor workspace config
+│   └── programs/soulbind/  # Solana program (Rust/Anchor)
 ├── demo/
 │   └── identity_demo.ts    # Demo implementation
 ├── tests/
 │   └── identity_demo.test.ts # Test suite
-└── config.ts               # Configuration
+└── config.ts               # Configuration (copy from config.ts.example)
 ```
 
 
@@ -71,6 +72,7 @@ soulbind/
 * Solana CLI tools
 * Phantom wallet or another Solana wallet
 * Solana Agent Kit
+* Rust and the [Anchor CLI](https://www.anchor-lang.com/docs/installation) — only needed to build/deploy the program in `smart_contracts/`
 
 ### Installation
 ```bash
@@ -80,7 +82,10 @@ npm install
 ```
 
 ### Configuration
-Create a config.ts file in the root directory:
+Copy `config.ts.example` to `config.ts` in the root directory (it's gitignored so your local copy stays out of version control):
+```bash
+cp config.ts.example config.ts
+```
 ```typescript
 export const config = {
   rpcUrl: "https://api.devnet.solana.com",
