@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Environment variables (wallet keys, RPC URLs, etc. — never commit these)
+.env
+.env.local
+.env.*.local
+
+# TypeScript build info
+*.tsbuildinfo
+next-env.d.ts
+
+# Rust / Anchor build output
+target/
+.anchor/
+test-ledger/
+
+# Editor/OS noise
+.DS_Store
