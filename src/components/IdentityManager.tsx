@@ -1,7 +1,9 @@
 // src/components/IdentityManager.tsx
 import React, { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { SolanaAgentKit } from "solana-agent-kit";
+import { Connection, Keypair } from '@solana/web3.js';
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo, freezeAccount } from '@solana/spl-token';
+import bs58 from 'bs58';
 
 export const IdentityManager = () => {
   const { publicKey } = useWallet();
@@ -25,24 +27,23 @@ export const IdentityManager = () => {
         throw new Error('WALLET_KEY and RPC_URL must be configured.');
       }
 
-      // NOTE: SolanaAgentKit signs with a raw private key (WALLET_KEY),
-      // which must never ship to the browser. Next.js already strips
-      // non-NEXT_PUBLIC_ env vars from client bundles, so this call needs
-      // to move behind a server-side API route (using the connected
-      // wallet's own signTransaction instead of a hardcoded key) before
-      // this is anything more than a local demo.
-      const agent = new SolanaAgentKit(walletKey, rpcUrl, {});
+      // NOTE: signing with a raw private key (WALLET_KEY) must never ship
+      // to the browser. Next.js already strips non-NEXT_PUBLIC_ env vars
+      // from client bundles, so this call needs to move behind a
+      // server-side API route (using the connected wallet's own
+      // signTransaction instead of a hardcoded key) before this is
+      // anything more than a local demo.
+      const connection = new Connection(rpcUrl, 'confirmed');
+      const payer = Keypair.fromSecretKey(bs58.decode(walletKey));
 
-      const result = await agent.deployToken(
-        "GlitchPhoenix",
-        "codex-uri",
-        "SOULBIND",
-        0,
-        {}, // Mint/freeze/update authority defaults to the agent's wallet
-        1   // initialSupply
-      );
+      const mint = await createMint(connection, payer, payer.publicKey, payer.publicKey, 0);
+      const tokenAccount = await getOrCreateAssociatedTokenAccount(connection, payer, mint, payer.publicKey);
+      await mintTo(connection, payer, mint, tokenAccount.address, payer, 1);
+      // Freeze the holder's account so the token can never be transferred —
+      // this is what makes it "soulbound" to the creator's wallet.
+      await freezeAccount(connection, payer, tokenAccount.address, mint, payer);
 
-      setDocument({ mint: result.mint.toString() });
+      setDocument({ mint: mint.toString() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to secure identity document.');
     } finally {
