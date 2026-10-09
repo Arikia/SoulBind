@@ -71,7 +71,6 @@ soulbind/
 * Node.js >= 16.0.0
 * Solana CLI tools
 * Phantom wallet or another Solana wallet
-* Solana Agent Kit
 * Rust and the [Anchor CLI](https://www.anchor-lang.com/docs/installation) — only needed to build/deploy the program in `smart_contracts/`
 
 ### Installation
@@ -96,24 +95,24 @@ export const config = {
 
 ### Basic Usage
 ```typescript
-import { SolanaAgentKit } from "solana-agent-kit";
+import { Connection, Keypair } from "@solana/web3.js";
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo, freezeAccount } from "@solana/spl-token";
+import bs58 from "bs58";
 
-// Initialize with Solana Agent Kit
-const agent = new SolanaAgentKit(
-  process.env.WALLET_KEY,
-  "https://api.devnet.solana.com"
-);
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const payer = Keypair.fromSecretKey(bs58.decode(process.env.WALLET_KEY!));
 
-// Create soulbound identity token
-const result = await agent.deployToken(
-  "GlitchPhoenix",
-  "codex-uri",
-  "SOULBIND",
-  0,
-  1
-);
+// Create a non-divisible SPL token mint for the identity document
+const mint = await createMint(connection, payer, payer.publicKey, payer.publicKey, 0);
 
-console.log("Identity Token Created:", result.mint.toString());
+// Mint exactly one token into the creator's own account, then freeze that
+// account so the token can never be transferred — this is what makes it
+// "soulbound" to the creator's wallet.
+const tokenAccount = await getOrCreateAssociatedTokenAccount(connection, payer, mint, payer.publicKey);
+await mintTo(connection, payer, mint, tokenAccount.address, payer, 1);
+await freezeAccount(connection, payer, tokenAccount.address, mint, payer);
+
+console.log("Identity Token Created:", mint.toString());
 ```
 
 ## Demo

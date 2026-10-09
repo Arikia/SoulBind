@@ -1,5 +1,12 @@
 // demo/identity_demo.ts
-import { SolanaAgentKit } from "solana-agent-kit";
+import { Connection, Keypair } from "@solana/web3.js";
+import {
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  freezeAccount,
+} from "@solana/spl-token";
+import bs58 from "bs58";
 
 async function demonstrateIdentityProtection() {
   const walletKey = process.env.WALLET_KEY;
@@ -7,33 +14,32 @@ async function demonstrateIdentityProtection() {
     throw new Error("WALLET_KEY environment variable is required to run this demo.");
   }
 
-  // Initialize Solana Agent Kit with devnet for testing
-  const agent = new SolanaAgentKit(
-    walletKey,
-    "https://api.devnet.solana.com",
-    {}
-  );
+  const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+  const payer = Keypair.fromSecretKey(bs58.decode(walletKey));
 
   console.log("Starting SoulBind Identity Demo...");
 
-  // Deploy soulbound token for Glitch Phoenix identity
-  const tokenResult = await agent.deployToken(
-    "GlitchPhoenix", // Token name
-    "codex-uri",     // Points to secured identity document
-    "SOULBIND",      // Token symbol
-    0,               // Non-divisible token
-    {},              // Mint/freeze/update authority defaults to the agent's wallet
-    1                // Only one token exists (initialSupply)
-  );
+  // Create a new SPL token mint for the Glitch Phoenix identity: 0 decimals
+  // (non-divisible), with the creator's own wallet as mint & freeze authority.
+  const mint = await createMint(connection, payer, payer.publicKey, payer.publicKey, 0);
 
-  console.log("Identity Token Created:", tokenResult.mint.toString());
+  // Create the creator's token account and mint exactly one token into it —
+  // "only one token exists".
+  const tokenAccount = await getOrCreateAssociatedTokenAccount(connection, payer, mint, payer.publicKey);
+  await mintTo(connection, payer, mint, tokenAccount.address, payer, 1);
+
+  // Freeze the holder's account so the token can never be transferred out of
+  // it — this is what makes it "soulbound" to the creator's wallet.
+  await freezeAccount(connection, payer, tokenAccount.address, mint, payer);
+
+  console.log("Identity Token Created:", mint.toString());
   console.log("Token is soulbound to creator's wallet");
 
   // Demonstrate access control
   console.log("Demonstrating token-gated access...");
   // Add access demonstration logic here
 
-  return tokenResult;
+  return { mint };
 }
 
 // Export for use in testing and demos
